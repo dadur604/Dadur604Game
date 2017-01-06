@@ -1,13 +1,14 @@
+from random import sample, uniform, choice, choices, randint, random
+
 def cls():
     import subprocess as sp
     sp.call('cls',shell=True)
 
 def mapGen():
-    from random import sample, uniform, choice
 
     #Map Generation
     global avaliableTiles                           #How many avaliable tiles
-    avaliableTiles = sample(range(1, 10), int(uniform(5, 8)))
+    avaliableTiles = sample(range(1, 10), randint(5, 8))
 
     #Choses tile to spawn on
     global playerTile
@@ -22,6 +23,20 @@ def mapGen():
     tileType[choice(avaliableTiles)] = 'hostile'
     tileType[playerTile] = 'friendly'
     #print(tileType)
+
+    #Setting actions allowed at each tile
+    global canBuy
+    global canSleep
+    global enemyLevel
+    canBuy = {}
+    canSleep = {}
+    enemyLevel = {}
+    for i in avaliableTiles:
+        if tileType[i] == 'friendly':
+            canBuy[i] = choice([True, False])
+            canSleep[i] = choice([True, False])
+        elif tileType[i] == 'hostile':
+            enemyLevel[i] = randint(0, 5)
 
 def updateMap():
     global tileDict
@@ -49,11 +64,13 @@ def updateMap():
 def start():
     mapGen()
     updateMap()
-    cls()
+    global health
+    global playerWeapon
     health = 100
+    playerWeapon = ('fists', 0)
     print('What is your username?')
-    userName = input('>')
-    print('Welcome, %s' %(userName))
+    username = input('>')
+    print('Welcome, %s' %(username))
     print('''
         {0} This represents you.
         {1} This represents a tile you can visit. Press the number inside to visit this tile.
@@ -74,9 +91,12 @@ def moveTo():
     except ValueError:
         print('Please enter a number!')
         moveTo()
-    if next_move == '0':
+    if next_move == 0:
         cls()
         interact()
+    elif next_move > 9 or next_move < 0:
+        print('The number must be between 0 and 9')
+        moveTo()
     elif next_move == playerTile:
         print('You are already at %s'%(next_move))
         moveTo()
@@ -93,39 +113,89 @@ def interact():
     global playerTile
     global tileType
     global tileMap
+    global enemyLevel
+    global playerWeapon
+    global win_chance
     curType = tileType[playerTile]
     updateMap()
     print(tileMap)
     print('You are on tile %s, which is a %s tile.'%(playerTile, curType))
+    do_list = []
+    if curType == 'friendly': #Create prompt of avaliable actions
+        if canBuy[playerTile] == True:
+            do_list.append('(B) Buy Items   ')
+        if canSleep[playerTile] -- True:
+            do_list.append('(S) Sleep (Restore Health)  ')
+        do_list.append('(R) Raid city   ')
+        do_list.append('(M) Move to another tile')
+
     if curType == 'friendly':
-        print('(X) do_x     (Y) do_y    (Z) do_z    (M) Move to another tile')
+        print(''.join(do_list))
         next_action = input('>')
         cls()
         next_action = next_action.lower()
-        if next_action == 'x':
-            pass
-        elif next_action == 'y':
-            pass
-        elif next_action == 'z':
-            pass
+        if next_action == 'b':
+            if canBuy[playerTile]:
+                buy()
+            elif not canBuy[playerTile]:
+                print('You cannot buy at this tile!')
+                interact() #Buy
+        elif next_action == 's':
+            if canSleep[playerTile]:
+                sleep()
+            elif not canSleep[playerTile]:
+                print('You cannot sleep here!')
+                interact() #Sleep
+        elif next_action == 'r':
+            print('Raiding a friendly territory will make it hostile, and yeild a random amount of money and loot. Chance of success depends on weapon.')
+            print('Are you sure you want to raid this tile? Y or N')
+            yes = input('>')
+            yes = yes.lower()
+            if yes == 'y':
+                raid()
+            elif yes == 'n':
+                interact()
+            else:
+                print('Invalid input')
+                interact() #Raid
         elif next_action == 'm':
-            moveTo()
+            moveTo() #Move
         else:
             print('Invalid input.')
             interact()
     elif curType == 'hostile':
-        print('(X) do_x     (Y) do_y    (Z) do_z    (M) Move to another tile')
+        print('(A) Attack   (S) Steal   (M) Escape')
         next_action = input('>')
         cls()
         next_action = next_action.lower()
-        if next_action == 'x':
-            pass
-        elif next_action == 'y':
-            pass
-        elif next_action == 'z':
+        if next_action == 'a':
+            dif = playerWeapon[1] - enemyLevel[playerTile]
+            if dif == 0:
+                win_chance = .5
+            elif dif > 0 and dif < 2:
+                win_chance = uniform(.5, .9)
+            elif dif >= 2:
+                win_chance = uniform(.9, 1)
+            elif dif < 0 and dif > -2:
+                win_chance = uniform(.2, .5)
+            elif dif <= -2:
+                win_chance = uniform(0, .2)
+            win_chance = round(win_chance, 2)
+            print('This tile\'s enemy level is %s. Your weapon, %s, has a level of %s.'%(enemyLevel[playerTile], playerWeapon[0], playerWeapon[1]))
+            print('Your chance of success is %s. Do you want to attack? Y or N'%(win_chance))
+            yes = input('>')
+            yes = yes.lower()
+            if yes == 'y':
+                attack()
+            elif yes == 'n':
+                interact()
+            else:
+                print('Invalid input')
+
+        elif next_action == 's':
             pass
         elif next_action == 'm':
-            moveTo()
+            pass
         else:
             print('Invalid input.')
             interact()
@@ -143,5 +213,22 @@ def dead():
 def checkDead():
     if health <= 0:
         dead()
+
+def raid():
+    print('Raiding...')
+    interact()
+
+def buy():
+    print('Buying...')
+    interact()
+
+def sleep():
+    print('Sleeping...')
+    interact()
+
+def attack():
+    global win_chance
+    win = choices((True, False), weights = [win_chance, (1 - win_chance)])
+    print(win)
 
 start()
